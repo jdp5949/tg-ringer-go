@@ -1,0 +1,9 @@
+# secrets / sessions
+*.session
+config
+.env
+
+# build output
+/dist/
+/tg-ringer
+/bin/
