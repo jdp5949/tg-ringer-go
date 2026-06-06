@@ -219,3 +219,58 @@ func (c *Client) Message(ctx context.Context, target, text string) error {
 func (c *Client) Self(ctx context.Context) (*tg.User, error) {
 	return c.tg.Self(ctx)
 }
+
+// SpamStatus asks @SpamBot about this account's restriction status and returns
+// its reply. Useful to check whether the account is limited before relying on it.
+func (c *Client) SpamStatus(ctx context.Context) (string, error) {
+	res, err := c.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
+		Username: "SpamBot",
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(res.Users) == 0 {
+		return "", fmt.Errorf("cannot resolve @SpamBot")
+	}
+	u, ok := res.Users[0].AsNotEmpty()
+	if !ok {
+		return "", fmt.Errorf("empty @SpamBot user")
+	}
+	peer := &tg.InputPeerUser{UserID: u.ID, AccessHash: u.AccessHash}
+
+	randID, err := randInt()
+	if err != nil {
+		return "", err
+	}
+	if _, err := c.api.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+		Peer:     peer,
+		Message:  "/start",
+		RandomID: int64(randID),
+	}); err != nil {
+		return "", err
+	}
+
+	// give the bot a moment to reply, then read the latest message
+	time.Sleep(3 * time.Second)
+	hist, err := c.api.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+		Peer:  peer,
+		Limit: 1,
+	})
+	if err != nil {
+		return "", err
+	}
+	msgs, ok := hist.(*tg.MessagesMessages)
+	if !ok {
+		if slice, ok2 := hist.(*tg.MessagesMessagesSlice); ok2 {
+			msgs = &tg.MessagesMessages{Messages: slice.Messages}
+		} else {
+			return "", fmt.Errorf("unexpected history type %T", hist)
+		}
+	}
+	for _, m := range msgs.Messages {
+		if msg, ok := m.(*tg.Message); ok {
+			return msg.Message, nil
+		}
+	}
+	return "(no reply yet — try again in a moment)", nil
+}

@@ -257,6 +257,21 @@ func main() {
 			fmt.Printf("%s (id %d, @%s)\n", me.FirstName, me.ID, me.Username)
 			return nil
 		})
+	case "status":
+		var c ringer.Config
+		if c, err = cfg(); err != nil {
+			break
+		}
+		err = ringer.Run(ctx, c, func(ctx context.Context, cl *ringer.Client) error {
+			fmt.Println("asking @SpamBot ...")
+			reply, e := cl.SpamStatus(ctx)
+			if e != nil {
+				return e
+			}
+			fmt.Println("---")
+			fmt.Println(reply)
+			return nil
+		})
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -300,6 +315,7 @@ func usage() {
   tg-ringer call  TARGET [secs]  ring a user/number, then hang up
   tg-ringer msg   TARGET TEXT...  send a direct message
   tg-ringer whoami               show the logged-in account
+  tg-ringer status               check anti-spam status via @SpamBot
   tg-ringer config               show current config
   tg-ringer init                 (re)configure credentials
 
