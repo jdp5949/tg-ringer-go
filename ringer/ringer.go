@@ -9,10 +9,15 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/big"
+	"mime"
+	"path/filepath"
 	"time"
 
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
+	"github.com/gotd/td/telegram/message"
+	"github.com/gotd/td/telegram/message/styling"
+	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
 )
 
@@ -212,6 +217,42 @@ func (c *Client) Message(ctx context.Context, target, text string) error {
 		Message:  text,
 		RandomID: int64(randID),
 	})
+	return err
+}
+
+// SendDocument uploads a local file and sends it as a document to the target,
+// with an optional caption. Used for delivering generated reports (e.g. PDFs).
+func (c *Client) SendDocument(ctx context.Context, target, path, caption string) error {
+	peer, err := c.resolve(ctx, target)
+	if err != nil {
+		return err
+	}
+	u, ok := peer.(*tg.InputUser)
+	if !ok {
+		return fmt.Errorf("unsupported peer type %T", peer)
+	}
+	inputPeer := &tg.InputPeerUser{UserID: u.UserID, AccessHash: u.AccessHash}
+
+	up := uploader.NewUploader(c.api)
+	file, err := up.FromPath(ctx, path)
+	if err != nil {
+		return fmt.Errorf("upload %s: %w", path, err)
+	}
+
+	name := filepath.Base(path)
+	mimeType := mime.TypeByExtension(filepath.Ext(name))
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	var caps []styling.StyledTextOption
+	if caption != "" {
+		caps = append(caps, styling.Plain(caption))
+	}
+	doc := message.UploadedDocument(file, caps...).Filename(name).MIME(mimeType)
+
+	sender := message.NewSender(c.api).WithUploader(up)
+	_, err = sender.To(inputPeer).Media(ctx, doc)
 	return err
 }
 

@@ -244,6 +244,28 @@ func main() {
 			fmt.Println("sent")
 			return nil
 		})
+	case "doc":
+		var c ringer.Config
+		if c, err = cfg(); err != nil {
+			break
+		}
+		if len(os.Args) < 4 {
+			err = errors.New("usage: tg-ringer doc TARGET FILE [CAPTION...]")
+			break
+		}
+		tgt := os.Args[2]
+		path := os.Args[3]
+		caption := ""
+		if len(os.Args) > 4 {
+			caption = strings.Join(os.Args[4:], " ")
+		}
+		err = ringer.Run(ctx, c, func(ctx context.Context, cl *ringer.Client) error {
+			if e := cl.SendDocument(ctx, tgt, path, caption); e != nil {
+				return e
+			}
+			fmt.Println("sent")
+			return nil
+		})
 	case "whoami":
 		var c ringer.Config
 		if c, err = cfg(); err != nil {
@@ -314,6 +336,7 @@ func usage() {
   tg-ringer login                interactive setup + sign in
   tg-ringer call  TARGET [secs]  ring a user/number, then hang up
   tg-ringer msg   TARGET TEXT...  send a direct message
+  tg-ringer doc   TARGET FILE [CAPTION...]  send a file/document
   tg-ringer whoami               show the logged-in account
   tg-ringer status               check anti-spam status via @SpamBot
   tg-ringer config               show current config
